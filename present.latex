@@ -1,4 +1,5 @@
 \documentclass{beamer}
+\usepackage{listings}
 \usetheme{metropolis}
 \title{Wireguard: A Modern VPN Protocol}
 \author{Jinank Jain, Rayhaan Jaufeerally}
@@ -43,6 +44,40 @@
                     \item Complex confoguration vulnerable to leaks,
                     \item Stateful protocol which is brittle in real networks,
                     \item Large codebase / attack surface,
+                \end{itemize}
+        \end{itemize}
+    \end{frame}
+    \begin{frame}[fragile]{Minimialistic Interface}
+    ``Developers should write programs that can communicate easily with other programs''
+    \\[5pt]
+    \rightline{{\rm --- Unix Philosophy}}
+        \begin{itemize}
+            \item Wireguard presents a normal network interface
+                \begin{lstlisting}
+# ip link add wg0 type wireguard
+# ip address add 10.0.32.1/24 dev wg0
+# ip route add default via wg0
+                \end{lstlisting}
+            \item By using a standard interface it becomes easier to administer using the existing iproute2 utilities for example
+        \end{itemize}
+    \end{frame}
+    \begin{frame}{Cryptokey Routing}
+        \begin{itemize}
+            \item Fundamental concept of any VPN service
+                \begin{itemize}
+                    \item Create \textbf{mapping} between \textbf{public keys of peers} and their \textbf{IPs}.
+                \end{itemize}
+            \item WireGuard interface has:
+                \begin{itemize}
+                    \item A private key
+                    \item A listening UDP port
+                    \item A list of peers
+                \end{itemize}
+            \item Peer has
+                \begin{itemize}
+                    \item A public key
+                    \item A list of associated tunnel IPs
+                    \item Optionally has an endpoint IP and port
                 \end{itemize}
         \end{itemize}
     \end{frame}
