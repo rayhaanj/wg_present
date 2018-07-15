@@ -60,7 +60,7 @@
     \end{frame}
     \begin{frame}{Easily Auditable}
         \begin{figure}
-            \includegraphics[width=\textwidth]{vpn_compare}
+            \includegraphics[width=\textwidth]{vpn_compare.pdf}
             \caption{Comparing different VPN protocols in terms of LOC}
         \end{figure}
     \end{frame}
@@ -104,5 +104,26 @@
             \subfloat{{\includegraphics[width=6cm]{ping.png} }}%
             \label{fig:example}%
         \end{figure}
+    \end{frame}
+    \begin{frame}{Stealth}
+    	\begin{minipage}{0.6\textwidth}
+			\begin{itemize}
+				\item Behaves like a rootkit in some sense.
+				\item Should not respond to any unauthenticated packets.
+				\item Hinder scanners and service discovery.
+				\item Service only responds to packets with correct crypto.
+				\item Not chatty at all. 
+    		\end{itemize} 
+		\end{minipage}
+		\begin{minipage}{0.37\textwidth}
+			\begin{figure}
+				\includegraphics[width=\textwidth]{ninja.jpg}
+			\end{figure}
+		\end{minipage}
+    \end{frame}
+    \begin{frame}{The Key Exchange}
+    	\begin{figure}
+			\includegraphics[width=\textwidth]{handshake.pdf}
+		\end{figure}
     \end{frame}
 \end{document}
