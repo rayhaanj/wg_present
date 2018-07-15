@@ -48,6 +48,22 @@
                 \end{itemize}
         \end{itemize}
     \end{frame}
+    \begin{frame}{What is Wireguard?}
+        \begin{itemize}
+            \item Opinionated Layer 3 secure network tunnel for IPv4 and IPv6.
+            \item Lives in the Linux kernel, but cross platform userspace implementations are available.
+            \item UDP based. Punches through firewall.
+            \item Modern conservative cryptographic principles.
+            \item Emphasis on simplicity and auditability.
+            \item Authentication model similar to SSH's \texttt{authorized\_keys}.
+        \end{itemize}
+    \end{frame}
+    \begin{frame}{Easily Auditable}
+        \begin{figure}
+            \includegraphics[width=\textwidth]{vpn_compare}
+            \caption{Comparing different VPN protocols in terms of LOC}
+        \end{figure}
+    \end{frame}
     \begin{frame}[fragile]{Minimialistic Interface}
     ``Developers should write programs that can communicate easily with other programs''
     \\[5pt]
