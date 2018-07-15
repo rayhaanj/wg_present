@@ -1,5 +1,6 @@
 \documentclass{beamer}
 \usepackage{listings}
+\usepackage{subfig}
 \usetheme{metropolis}
 \title{Wireguard: A Modern VPN Protocol}
 \author{Jinank Jain, Rayhaan Jaufeerally}
@@ -80,5 +81,12 @@
                     \item Optionally has an endpoint IP and port
                 \end{itemize}
         \end{itemize}
+    \end{frame}
+    \begin{frame}[fragile]{Performance}
+        \begin{figure}
+            \hspace*{-1cm} \subfloat{{\includegraphics[width=6cm]{bandwidth.png} }}%
+            \subfloat{{\includegraphics[width=6cm]{ping.png} }}%
+            \label{fig:example}%
+        \end{figure}
     \end{frame}
 \end{document}
