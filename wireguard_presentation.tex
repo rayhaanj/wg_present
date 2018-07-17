@@ -1,6 +1,7 @@
 \documentclass{beamer}
 \usepackage{listings}
 \usepackage{subfig}
+\usepackage{bytefield}
 \usetheme{metropolis}
 \title{Wireguard: A Modern VPN Protocol}
 \author{Jinank Jain, Rayhaan Jaufeerally}
@@ -124,6 +125,42 @@
             \end{figure}
         \end{minipage}
     \end{frame}
+
+    \section{Protocol design}
+
+    \begin{frame}{Handshake DoS}
+    \begin{itemize}
+        \item Verifying authenticity using Curve25519 is expensive,
+        \item Under load a server may send a cookie which needs to be echoed back,
+        \item This proves IP ownership, hence IP rate limiting can be used (e.g. token bucket).
+        \item The cookie is the MAC over the source IP with a secret which changes every 120s.
+    \end{itemize}
+    \end{frame}
+
+    \begin{frame}{Flaws to be addressed}
+        \begin{itemize}
+            \item Indescriminate cookie responses violate silence property,
+            \item Cleartext cookies are vulnerable to MiTM replay attacks,
+            \item Initator itself could be DoS'ed by being sent fake cookies
+        \end{itemize}
+    \end{frame}
+
+    \begin{frame}{Issue 1: Silence}
+        \begin{itemize}
+            \item For the responser to remain silent, all messages have a first MAC using the responder's public key,
+            \item This proves that a peer knows to whom it is talking,
+            \item While this public key is not secret, it is acceptable in the threat model to say if the initator knows the public key, then it knows of the existance of the server,
+            \item This MAC is included in all packets as \texttt{msg.mac1}
+        \end{itemize}
+    \end{frame}
+
+    \begin{frame}{Issue 2: Cleartext cookies}
+    \begin{itemize}
+        \item The cookie is encrypted using \texttt{XChaCha20Poly1305 AEAD} with a randomized nonce,
+        \item This uses the responders public key as as symmetric encryption key
+    \end{itemize}
+    \end{frame}
+
     \begin{frame}{The Key Exchange}
         \begin{figure}
             \includegraphics[width=\textwidth]{handshake.pdf}
@@ -138,6 +175,52 @@
                 \includegraphics[width=0.6\textwidth]{session_key.pdf}
             \end{figure}
         \end{itemize}
+    \end{frame}
+
+    \begin{frame}{Message 1: Initator to responder}
+        %XXX Horrific abuse of bytefield to make it look nice.
+        \begin{figure}
+        \begin{bytefield}{32}
+            \bitbox{13}{Type := 1 (1 byte)}
+            \bitbox{19}{Reserved := 0 (3 bytes)}\\
+            \bitbox{32}{Sender := $I_i$ (4 bytes)}\\
+            \wordbox{1}{Ephemeral (32 bytes)}\\
+            \wordbox{1}{Static (32 bytes)}\\
+            \wordbox{1}{Timestamp (12 bytes)}\\
+            \bitbox{16}{mac1 (16 bytes)}
+            \bitbox{16}{mac2 (16 bytes)}
+        \end{bytefield}
+        \caption{Initator to responder packet. \tiny{\textsc{not to scale}}.}
+        \end{figure}
+    \end{frame}
+    \begin{frame}{Message 2: Responder to initiator}
+        \begin{figure}
+        \begin{bytefield}{32}
+            \bitbox{13}{type := 0x2 (1 byte)}
+            \bitbox{19}{reserved := 0 (3 bytes)}\\
+            \bitbox{16}{sender := $I_r$ (4 bytes)}
+            \bitbox{16}{receiver := $I_i$ (4 bytes)}\\
+            \wordbox{1}{Ephemeral (32 bytes)}\\
+            \wordbox{1}{Empty (0 bytes)}\\
+            \bitbox{16}{mac1 (16 bytes)}
+            \bitbox{16}{mac2 (16 bytes)}\\
+        \end{bytefield}
+        \caption{Responder to initiator packet. \tiny{\textsc{not to scale}}}
+        \end{figure}
+    \end{frame}
+    \begin{frame}{Transport data messages}
+        \begin{figure}
+         \begin{bytefield}{32}
+            \bitbox{13}{type := 0x4 (1 byte)}
+            \bitbox{19}{reserved := 0 (3 bytes)}\\
+            \wordbox{1}{receiver := $I_{m'}$ (4 bytes)}\\
+            \wordbox{1}{counter (8 bytes)}\\
+            \wordbox[lrt]{1}{packet data}\\
+            \skippedwords\\
+            \wordbox[lrb]{1}{}\\
+        \end{bytefield}
+        \caption{Payload packet. \tiny{\textsc{not to scale}}}
+        \end{figure}
     \end{frame}
 \end{document}
 
