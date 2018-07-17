@@ -1,11 +1,11 @@
-\documentclass{beamer}
-\usepackage{listings}
+\documentclass[xcolor=table]{beamer}
 \usepackage{subfig}
 \usepackage{bytefield}
+\usepackage{minted}
 \usetheme{metropolis}
 \title{Wireguard: A Modern VPN Protocol}
 \author{Jinank Jain, Rayhaan Jaufeerally}
-\institute{ETH Z\"urich}
+\institute{Network Security Group, ETH Z\"urich}
 \begin{document}
     \maketitle
     \section{Introduction}
@@ -71,11 +71,11 @@
     \rightline{{\rm --- Unix Philosophy}}
         \begin{itemize}
             \item Wireguard presents a normal network interface
-                \begin{lstlisting}
-# ip link add wg0 type wireguard
-# ip address add 10.0.32.1/24 dev wg0
-# ip route add default via wg0
-                \end{lstlisting}
+                \begin{minted}{shell}
+ip link add wg0 type wireguard
+ip address add 10.0.32.1/24 dev wg0
+ip route add default via wg0
+                \end{minted}
             \item By using a standard interface it becomes easier to administer using the existing iproute2 utilities for example
         \end{itemize}
     \end{frame}
@@ -140,7 +140,7 @@
     \begin{frame}{Flaws to be addressed}
         \begin{itemize}
             \item Indescriminate cookie responses violate silence property,
-            \item Cleartext cookies are vulnerable to MiTM replay attacks,
+            \item Cleartext cookies are vulnerable to MiTM replay attacks which cause extra computation,
             \item Initator itself could be DoS'ed by being sent fake cookies
         \end{itemize}
     \end{frame}
@@ -157,8 +157,97 @@
     \begin{frame}{Issue 2: Cleartext cookies}
     \begin{itemize}
         \item The cookie is encrypted using \texttt{XChaCha20Poly1305 AEAD} with a randomized nonce,
-        \item This uses the responders public key as as symmetric encryption key
+        \item This uses the responder's public key as as symmetric encryption key
     \end{itemize}
+    \end{frame}
+
+    \begin{frame}{Issue 3: Fraudulent cookies}
+    \begin{itemize}
+        \item The additional data field of AEAD to encrypt the cookie in transit is used to authenticate the first MAC,
+        \item An attacker without an active MiTM cannot send fraudulent invalid cookie responses to prevent them from authenticating,
+        \item This is acceptable in the threat model because a Dolev-Yao attacker could just drop packets to prevent authentication
+    \end{itemize}
+    \end{frame}
+
+    \begin{frame}{Crypto background --- ChaCha20}
+        \begin{itemize}
+            \item A stream cipher designed by DJB based upon Salsa20,
+            \item Uses simple operations: XOR, 32 bit addition mod \(2^{32}\), and constant distance rotation operations (\(<<<\)),
+            \item Limiting to these instructions aims to avoid timing side channels,
+            \item Internal state consists of sixteen 32-bit words in a \(4 \times 4\) matrix
+        \end{itemize}
+    \end{frame}
+
+    \begin{frame}{Crypto background --- ChaCha20 State}
+        \begin{table}
+        \begin{tabular}{|c|c|c|c|}
+            \hline
+            \rowcolor{yellow!25}Cons & Cons & Cons& Cons\\
+            \hline
+            \rowcolor{blue!25} Key & Key & Key & Key\\
+            \hline
+            \rowcolor{blue!25} Key & Key & Key & Key\\
+            \hline
+            \cellcolor{red!25} Pos & \cellcolor{red!25} Pos & \cellcolor{green!25} Nonce & \cellcolor{green!25} Nonce\\
+            \hline
+        \end{tabular}
+        \caption{Initial state of ChaCha20}
+        \end{table}
+
+        Constant used is ``expand 32-byte k'' which is a ``nothing up my sleeve number''.
+    \end{frame}
+
+    \begin{frame}[fragile]{Crypto background --- ChaCha20}
+        \begin{minted}{c}
+#define ROT(a,b) (((a) << (b)) | ((a) >> (32 - (b))))
+#define QR(a, b, c, d)       \
+   a += b;  d ^= a;  d = ROT(d,16);  \
+   c += d;  b ^= c;  b = ROT(b,12);  \
+   a += b;  d ^= a;  d = ROT(d, 8);  \
+   c += d;  b ^= c;  b = ROT(b, 7)
+        \end{minted}
+    \end{frame}
+
+    \begin{frame}[fragile]{Crypto background --- ChaCha20}
+        \begin{minted}[fontsize=\footnotesize]{c}
+void chacha_block(uint32 out[16],uint32 in[16]) {
+  int i; uint32 x[16];
+  for (i = 0;i < 16;++i) x[i] = in[i];
+  // 10 loops x 2 rounds/loop = 20 rounds.
+  for (int i = 0; i < 10; i++) {
+    // Odd round.
+    QR(x[0], x[4], x[ 8], x[12]); // column 0
+    QR(x[1], x[5], x[ 9], x[13]); // column 1
+    QR(x[2], x[6], x[10], x[14]); // column 2
+    QR(x[3], x[7], x[11], x[15]); // column 3
+    // Even round.
+    QR(x[0], x[5], x[10], x[15]); // diagonal 1 (main diagonal)
+    QR(x[1], x[6], x[11], x[12]); // diagonal 2
+    QR(x[2], x[7], x[ 8], x[13]); // diagonal 3
+    QR(x[3], x[4], x[ 9], x[14]); // diagonal 4
+  }
+  for (i = 0;i < 16;++i) out[i] = x[i] + in[i];
+}
+        \end{minted}
+    \end{frame}
+
+    \begin{frame}{Primitives}
+    \begin{description}
+        \item[DH(pubkey, privkey)] --- Curve25519 point multiplication of \texttt{privkey} and \texttt{pubkey}, 32 bytes output,
+        \item[DH\_Generate()] --- Generates a random Curve25519 private key and computes its corresponding public key,
+        \item[AEAD(key, counter, plaintext, authtext)] --- \texttt{ChaCha20Poly1305 AEAD} as specified in RFC 7539 with the nonce being 32 bits of zeros followed by 64bit LE value of \texttt{counter},
+        \item[XAEAD(key, nonce, plaintext, authtext)] --- \texttt{XChaChaPoly1305 AEAD} with 24 byte random \texttt{nonce} instantiated using \texttt{HChaCha20} and \texttt{ChaChaPoly1305}
+    \end{description}
+    \end{frame}
+
+    \begin{frame}{Primitives (cont'd)}
+        \begin{description}
+            \item[Hash(input)] --- \texttt{blake2s(input, 32)}
+            \item[MAC(key, input)] --- \texttt{keyed-blake2s(key, input, 16)}, the keyed MAC variant of the BLAKE2s hash function, 16 byte output,
+            \item[HMAC(key, input)] --- \texttt{HMAC-blake2s(key, input, 32)}, the ordinary BLAKE2s hash function used in an HMAC construction,
+            \item[$\mathbf{KDF_n}$(key, input)] --- Sets \(\mathcal{T}_0 := HMAC(key, input), \mathcal{T}_1 := HMAC(\mathcal{T}_0, 0x1), \ldots, \mathcal{T}_i := HMAC(\mathcal{T}_0, \mathcal{T}_{i - 1} || i)\)
+            \item[Timestamp()] --- Returns the TAI64N timestamp of the current time, 12 bytes output, first 8 bytes UNIX timestamp, last 4 bytes number of nanoseconds from the beginning of that second
+        \end{description}
     \end{frame}
 
     \begin{frame}{The Key Exchange}
@@ -193,6 +282,31 @@
         \caption{Initator to responder packet. \tiny{\textsc{not to scale}}.}
         \end{figure}
     \end{frame}
+
+    \begin{frame}{Message 1: computation}
+        \begin{align}
+            C_i &:= HASH(CONSTRUCTION)\\
+            H_i &:= HASH(C_i~||~IDENTIFIER)\\
+            H_i &:= HASH(H_i~||~S_r^{pub})\\
+            (E_i^{priv}, E_i^{pub}) &:= DH\_generate()\\
+            C_i &:= KDF_1(C_i, E_i^{pub})\\
+            \mathtt{msg.ephemeral} &:= E_i^{pub}\\
+            H_i &:= HASH(H_i~||~\mathtt{msg.ephemeral})\\
+            (C_i, \kappa) &:= KDF_2(C_i, DH(E_i^{priv}, S_r^{pub}))\\
+            \mathtt{msg.static} &:= AEAD(\kappa, 0, S_i^{pub}, H_i)\\
+            H_i &:= HASH(H_i~||~\mathtt{msg.static})
+        \end{align}
+    \end{frame}
+
+    \begin{frame}{Message 1: computation (cont'd)}
+        \begin{align}
+            (C_i, \kappa) &:= KDF_2(C_i, DH(S_i^{priv}, S_r^{pub})\\
+            \mathtt{msg.timestamp} &:= AEAD(\kappa, 0, Timestamp(), H_i)\\
+            H_i &:= HASH(H_i~||~\mathtt{msg.timestamp})
+        \end{align}
+    \end{frame}
+    \setcounter{equation}{0}
+
     \begin{frame}{Message 2: Responder to initiator}
         \begin{figure}
         \begin{bytefield}{32}
@@ -208,6 +322,22 @@
         \caption{Responder to initiator packet. \tiny{\textsc{not to scale}}}
         \end{figure}
     \end{frame}
+
+    \begin{frame}{Message 2: computation}
+        \begin{align}
+            (E_r^{priv}, E_R^{pub}) &:= DH\_Generate()\\
+            C_R &:= KDF_1(C_r, E_r^{pub})\\
+            \mathtt{msg.ephemeral} &:= E_r^{pub}\\
+            H_r &:= HASH(C_r~||~\mathtt{msg.ephemeral}\\
+            C_r &:= KDF_1(C_r, DH(E_r^{priv}, E_i^{pub}))\\
+            C_r &:= KDF_1(C_r, DH(E_r^{priv}, S_i^{pub})\\
+            (C_r, \mathcal{T}, \kappa) &:= KDF_3(C_r, Q)\\
+            H_r &:= HASH(H_r~||~\mathcal{T})\\
+            \mathtt{msg.empty} &:= AEAD(\kappa, 0, \epsilon, H_r)\\
+            H_r &:= HASH(H_r, \mathtt{msg.empty})
+        \end{align}
+    \end{frame}
+
     \begin{frame}{Transport data messages}
         \begin{figure}
          \begin{bytefield}{32}
@@ -223,4 +353,3 @@
         \end{figure}
     \end{frame}
 \end{document}
-
