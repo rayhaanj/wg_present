@@ -129,4 +129,14 @@
 			\includegraphics[width=\textwidth]{handshake.pdf}
 		\end{figure}
     \end{frame}
+    \begin{frame}{Session key derivation - NoiseIK}
+		\begin{itemize}
+			\item One peer is the initiator; the other is responder
+			\item Each peer has their static identity - their long term \textit{static keypair}
+			\item For each new handshake, each peer generates an \textit{ephemeral keypair}
+			\begin{figure}
+				\includegraphics[width=0.6\textwidth]{session_key.pdf}
+			\end{figure}
+		\end{itemize}
+    \end{frame}
 \end{document}
