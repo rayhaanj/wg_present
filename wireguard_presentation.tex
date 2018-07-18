@@ -1,7 +1,8 @@
 \documentclass[xcolor=table]{beamer}
 \usepackage{subfig}
 \usepackage{bytefield}
-\usepackage{minted}
+\usepackage[cache=false]{minted}
+\usepackage[tikz]{bclogo}
 \usetheme{metropolis}
 \title{Wireguard: A Modern VPN Protocol}
 \author{Jinank Jain, Rayhaan Jaufeerally}
@@ -102,14 +103,10 @@ ip route add default via wg0
     \begin{frame}[fragile]{Cryptokey Routing}
         \includegraphics[width=\textwidth]{crypto_route.pdf}
     \end{frame}
-    \begin{frame}[fragile]{Performance}
-        \begin{figure}
-            \hspace*{-1cm} \subfloat{{\includegraphics[width=6cm]{bandwidth.png} }}%
-            \subfloat{{\includegraphics[width=6cm]{ping.png} }}%
-            \label{fig:example}%
-        \end{figure}
-    \end{frame}
-    \begin{frame}{Stealth}
+
+    \section{Protocol design}
+
+     \begin{frame}{Stealth}
         \begin{minipage}{0.6\textwidth}
             \begin{itemize}
                 \item Behaves like a rootkit in some sense.
@@ -125,8 +122,6 @@ ip route add default via wg0
             \end{figure}
         \end{minipage}
     \end{frame}
-
-    \section{Protocol design}
 
     \begin{frame}{Handshake DoS}
     \begin{itemize}
@@ -351,5 +346,53 @@ void chacha_block(uint32 out[16],uint32 in[16]) {
         \end{bytefield}
         \caption{Payload packet. \tiny{\textsc{not to scale}}}
         \end{figure}
+    \end{frame}
+    \begin{frame}{Timers: A Stateless Interface for a Stateful Protocol}
+        \begin{itemize}
+            \item Wireguard appears "\textbf{stateless}" to userspace; you set up peers, and then it just works.
+            \item Series of timers manages session state internally, invisible to the user.
+            \item Every transition of the state machine has been accounted for, so there is no undefined states or transitions.
+            \item Event based.
+        \end{itemize}
+    \end{frame}
+    \begin{frame}{Timers}
+        \begin{bclogo}[logo = \bchorloge, arrondi = 0.1]{Userspace sends packets.}
+        If no session has been established for 120 seconds, send handshake initiation.
+        \end{bclogo}
+        \begin{bclogo}[logo = \bchorloge, arrondi = 0.1]{No handshake response after 5 seconds.}
+        Resend handshake initiation.
+        \end{bclogo}
+        \begin{bclogo}[logo = \bchorloge, arrondi = 0.1]{Successful authentication of incoming packet}
+        Send an encrypted packet after 10 seconds, if we don't have anything else to send during that time.
+        \end{bclogo}
+        \begin{bclogo}[logo = \bchorloge, arrondi = 0.1]{No successfully authenticated
+incoming packets after 15 seconds.}
+        Send handshake initiation.
+        \end{bclogo}
+    \end{frame}
+    \begin{frame}[fragile]{Performance}
+        \begin{figure}
+            \hspace*{-1cm} \subfloat{{\includegraphics[width=6cm]{bandwidth.png} }}%
+            \subfloat{{\includegraphics[width=6cm]{ping.png} }}%
+            \label{fig:example}%
+        \end{figure}
+    \end{frame}
+    \begin{frame}{Recap}
+        \begin{minipage}{0.48\textwidth}
+            \begin{itemize}
+                \item Less than 4,000 lines of code
+                \item Easily implemented with basic data structures
+                \item Minimal state kept, no dynamic allocations
+                \item Solid cryptographic foundation.
+            \end{itemize}
+        \end{minipage}
+        \begin{minipage}{0.5\textwidth}
+            \begin{itemize}
+                \item Extremely performant - best in class.
+                \item Stealthy and minimal attack surface
+                \item Simple standard interface via an ordinary network device.
+                \item Opinionated.
+            \end{itemize}
+        \end{minipage}
     \end{frame}
 \end{document}
