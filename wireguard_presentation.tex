@@ -31,6 +31,12 @@
             \caption{Nation state surveillance of user data including SPII.}
         \end{figure}
     \end{frame}
+    \begin{frame}
+        \begin{figure}
+            \includegraphics[height=\textheight]{fstap.png}
+            \caption{Common off the shelf fiber tap.}
+        \end{figure}
+    \end{frame}
     \begin{frame}{History of VPN protocols}
         \begin{itemize}
             \item IPSEC
@@ -126,7 +132,7 @@ ip route add default via wg0
     \begin{frame}{Handshake DoS}
     \begin{itemize}
         \item Verifying authenticity using Curve25519 is expensive,
-        \item Under load a server may send a cookie which needs to be echoed back,
+        \item Under load a responder may send a cookie which needs to be echoed back,
         \item This proves IP ownership, hence IP rate limiting can be used (e.g. token bucket).
         \item The cookie is the MAC over the source IP with a secret which changes every 120s.
     \end{itemize}
@@ -142,9 +148,9 @@ ip route add default via wg0
 
     \begin{frame}{Issue 1: Silence}
         \begin{itemize}
-            \item For the responser to remain silent, all messages have a first MAC using the responder's public key,
+            \item For the responder to remain silent, all messages have a first MAC using the responder's public key,
             \item This proves that a peer knows to whom it is talking,
-            \item While this public key is not secret, it is acceptable in the threat model to say if the initator knows the public key, then it knows of the existence of the server,
+            \item While this public key is not secret, it is acceptable in the threat model to say if the initator knows the public key, then it knows of the existence of the responder,
             \item This MAC is included in all packets as \texttt{msg.mac1}
         \end{itemize}
     \end{frame}
@@ -152,7 +158,7 @@ ip route add default via wg0
     \begin{frame}{Issue 2: Cleartext cookies}
     \begin{itemize}
         \item The cookie is encrypted using \texttt{XChaCha20Poly1305 AEAD} with a randomized nonce,
-        \item This uses the responder's public key as as symmetric encryption key
+        \item This uses the responder's public key as symmetric encryption key
     \end{itemize}
     \end{frame}
 
@@ -323,7 +329,7 @@ void chacha_block(uint32 out[16],uint32 in[16]) {
             (E_r^{priv}, E_R^{pub}) &:= DH\_Generate()\\
             C_R &:= KDF_1(C_r, E_r^{pub})\\
             \mathtt{msg.ephemeral} &:= E_r^{pub}\\
-            H_r &:= HASH(C_r~||~\mathtt{msg.ephemeral}\\
+            H_r &:= HASH(C_r~||~\mathtt{msg.ephemeral})\\
             C_r &:= KDF_1(C_r, DH(E_r^{priv}, E_i^{pub}))\\
             C_r &:= KDF_1(C_r, DH(E_r^{priv}, S_i^{pub})\\
             (C_r, \mathcal{T}, \kappa) &:= KDF_3(C_r, Q)\\
